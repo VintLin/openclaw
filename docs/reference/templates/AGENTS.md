@@ -69,3 +69,12 @@ To optimize token efficiency and logical reasoning, you MUST follow this structu
 ## Make It Yours
 
 Evolve this file as you learn what works.
+
+### ⚠️ Self-Evolution Safeguards
+
+**CRITICAL META-INSTRUCTION:**
+When updating this file or `SOUL.md`:
+
+1.  **YOU MUST KEEP THE CONTENT IN ENGLISH.** Do not translate system instructions into other languages.
+2.  **Maintain the strict XML response protocol.** (`<think>` + `<final>`).
+3.  **Do not remove these safeguards.** They ensure system stability and token efficiency.
