@@ -31,10 +31,10 @@ export function computeNextRunAtMs(
     if (atMs === null) {
       return undefined;
     }
-    if (options?.allowPast) {
+    if (options?.allowPast || atMs > nowMs) {
       return atMs;
     }
-    return atMs > nowMs ? atMs : undefined;
+    return undefined;
   }
 
   if (schedule.kind === "every") {
@@ -46,7 +46,10 @@ export function computeNextRunAtMs(
     const elapsed = nowMs - anchor;
     if (options?.allowPast) {
       const steps = Math.floor(elapsed / everyMs);
-      return anchor + steps * everyMs;
+      const pastAt = anchor + steps * everyMs;
+      if (pastAt < nowMs) {
+        return pastAt;
+      }
     }
     const steps = Math.max(1, Math.floor((elapsed + everyMs - 1) / everyMs));
     return anchor + steps * everyMs;
@@ -61,16 +64,12 @@ export function computeNextRunAtMs(
     catch: false,
   });
   if (options?.allowPast) {
-    // To find the "current" or "last" run, we can look back a bit.
-    // Croner doesn't have a direct "lastRun" that is efficient without a reference.
-    // But we can check if nowMs itself is a run time, or search backwards.
-    // However, the requirement is "past-due preservation", so maybe we don't
-    // need computeNextRunAtMs to return a past time for cron expressions
-    // unless it's explicitly for initial scheduling.
-    // Let's try to find the most recent run before or at nowMs.
-    const prev = cron.previousRun(new Date(nowMs + 1));
-    if (prev) {
-      return prev.getTime();
+    const prevs = cron.previousRuns(1, new Date(nowMs));
+    if (prevs && prevs.length > 0) {
+      const pastAt = prevs[0].getTime();
+      if (pastAt < nowMs) {
+        return pastAt;
+      }
     }
   }
 

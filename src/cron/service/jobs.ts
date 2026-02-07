@@ -111,9 +111,8 @@ export function computeJobNextRunAtMs(job: CronJob, nowMs: number): number | und
     return atMs !== null ? atMs : undefined;
   }
 
-  // For cron expressions, also allow picking a past run if we are just initializing.
-  const allowPast = currentNext === undefined;
-  return computeNextRunAtMs(job.schedule, nowMs, { allowPast });
+  // For cron expressions, we don't pick a past run during initialization.
+  return computeNextRunAtMs(job.schedule, nowMs);
 }
 
 export function recomputeNextRuns(state: CronServiceState): boolean {
