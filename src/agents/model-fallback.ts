@@ -3,7 +3,9 @@ import type { FailoverReason } from "./pi-embedded-helpers.js";
 import {
   ensureAuthProfileStore,
   isProfileInCooldown,
+  markAuthProfileCooldown,
   resolveAuthProfileOrder,
+  saveAuthProfileStore,
 } from "./auth-profiles.js";
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from "./defaults.js";
 import {
@@ -211,7 +213,7 @@ export async function runWithModelFallback<T>(params: {
   agentDir?: string;
   /** Optional explicit fallbacks list; when provided (even empty), replaces agents.defaults.model.fallbacks. */
   fallbacksOverride?: string[];
-  run: (provider: string, model: string) => Promise<T>;
+  run: (provider: string, model: string, profileId?: string) => Promise<T>;
   onError?: (attempt: {
     provider: string;
     model: string;
@@ -239,15 +241,18 @@ export async function runWithModelFallback<T>(params: {
 
   for (let i = 0; i < candidates.length; i += 1) {
     const candidate = candidates[i];
+    let profileIds: string[] = [];
+
     if (authStore) {
-      const profileIds = resolveAuthProfileOrder({
+      const allProfileIds = resolveAuthProfileOrder({
         cfg: params.cfg,
         store: authStore,
         provider: candidate.provider,
       });
-      const isAnyProfileAvailable = profileIds.some((id) => !isProfileInCooldown(authStore, id));
+      // Filter out those in cooldown.
+      profileIds = allProfileIds.filter((id) => !isProfileInCooldown(authStore, id));
 
-      if (profileIds.length > 0 && !isAnyProfileAvailable) {
+      if (allProfileIds.length > 0 && profileIds.length === 0) {
         // All profiles for this provider are in cooldown; skip without attempting
         attempts.push({
           provider: candidate.provider,
@@ -258,44 +263,69 @@ export async function runWithModelFallback<T>(params: {
         continue;
       }
     }
-    try {
-      const result = await params.run(candidate.provider, candidate.model);
-      return {
-        result,
-        provider: candidate.provider,
-        model: candidate.model,
-        attempts,
-      };
-    } catch (err) {
-      if (shouldRethrowAbort(err)) {
-        throw err;
-      }
-      const normalized =
-        coerceToFailoverError(err, {
+
+    // If we have specific profiles to try, loop through them.
+    // Otherwise, try once with undefined profileId (default behavior).
+    const attemptsForCandidate = profileIds.length > 0 ? profileIds : [undefined];
+
+    for (const profileId of attemptsForCandidate) {
+      try {
+        const result = await params.run(candidate.provider, candidate.model, profileId);
+        return {
+          result,
           provider: candidate.provider,
           model: candidate.model,
-        }) ?? err;
-      if (!isFailoverError(normalized)) {
-        throw err;
-      }
+          attempts,
+        };
+      } catch (err) {
+        if (shouldRethrowAbort(err)) {
+          throw err;
+        }
+        const normalized =
+          coerceToFailoverError(err, {
+            provider: candidate.provider,
+            model: candidate.model,
+          }) ?? err;
 
-      lastError = normalized;
-      const described = describeFailoverError(normalized);
-      attempts.push({
-        provider: candidate.provider,
-        model: candidate.model,
-        error: described.message,
-        reason: described.reason,
-        status: described.status,
-        code: described.code,
-      });
-      await params.onError?.({
-        provider: candidate.provider,
-        model: candidate.model,
-        error: normalized,
-        attempt: i + 1,
-        total: candidates.length,
-      });
+        if (!isFailoverError(normalized)) {
+          throw err;
+        }
+
+        // If it's a rate limit and we have a profileId, mark it in cooldown.
+        if (authStore && profileId && normalized.reason === "rate_limit") {
+          await markAuthProfileCooldown({ store: authStore, profileId });
+          // Save the store state if needed, but markAuthProfileCooldown might be in-memory or persisted?
+          // ensureAuthProfileStore loads it. Persisting might require explicit save.
+          // markAuthProfileCooldown just updates the in-memory store object.
+          // We should probably save it to disk so other processes know.
+          // But saveAuthProfileStore requires the store object.
+          // We can try to save it here if we want persistence.
+          saveAuthProfileStore(authStore);
+        }
+
+        lastError = normalized;
+        const described = describeFailoverError(normalized);
+        attempts.push({
+          provider: candidate.provider,
+          model: candidate.model,
+          error: described.message,
+          reason: described.reason,
+          status: described.status,
+          code: described.code,
+        });
+        await params.onError?.({
+          provider: candidate.provider,
+          model: candidate.model,
+          error: normalized,
+          attempt: i + 1, // This attempt count is a bit loose now with profile rotation
+          total: candidates.length,
+        });
+
+        // If it was a rate limit on a specific profile, we loop to the next profile.
+        // If it wasn't a rate limit, maybe we should still try next profile?
+        // Usually 500s might be provider-wide, but 429/quota are profile-specific.
+        // For now, we continue to the next profile in the loop.
+      }
     }
   }
 

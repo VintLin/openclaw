@@ -390,11 +390,13 @@ export async function runEmbeddedPiAgent(
             onReasoningStream: params.onReasoningStream,
             onToolResult: params.onToolResult,
             onAgentEvent: params.onAgentEvent,
-            extraSystemPrompt: [params.extraSystemPrompt, SUB_AGENT_PROTOCOL].filter(Boolean).join("\n\n"),
+            extraSystemPrompt: [params.extraSystemPrompt, SUB_AGENT_PROTOCOL]
+              .filter(Boolean)
+              .join("\n\n"),
             streamParams: params.streamParams,
             ownerNumbers: params.ownerNumbers,
             enforceFinalTag: params.enforceFinalTag,
-            limitHistoryTurns: hasRotated ? FAILOVER_HISTORY_LIMIT : undefined,
+            limitHistoryTurns: hasRotated ? FAILOVER_HISTORY_LIMIT : params.historyLimit,
           });
 
           const { aborted, promptError, timedOut, sessionIdUsed, lastAssistant } = attempt;

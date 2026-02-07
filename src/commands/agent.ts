@@ -392,7 +392,7 @@ export async function agentCommand(
         model,
         agentDir,
         fallbacksOverride: resolveAgentModelFallbacksOverride(cfg, sessionAgentId),
-        run: (providerOverride, modelOverride) => {
+        run: (providerOverride, modelOverride, profileIdOverride) => {
           if (isCliProvider(providerOverride, cfg)) {
             const cliSessionId = getCliSessionId(sessionEntry, providerOverride);
             return runCliAgent({
@@ -415,8 +415,15 @@ export async function agentCommand(
             });
           }
           const authProfileId =
-            providerOverride === provider ? sessionEntry?.authProfileOverride : undefined;
+            profileIdOverride ??
+            (providerOverride === provider ? sessionEntry?.authProfileOverride : undefined);
+
+          // Lazy Sync: Truncate history when switching models to save tokens.
+          const isFallbackModel = providerOverride !== provider || modelOverride !== model;
+          const historyLimit = isFallbackModel ? 5 : undefined;
+
           return runEmbeddedPiAgent({
+            historyLimit,
             sessionId,
             sessionKey,
             agentId: sessionAgentId,

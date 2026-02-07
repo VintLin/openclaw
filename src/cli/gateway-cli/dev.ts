@@ -60,11 +60,42 @@ async function ensureDevWorkspace(dir: string) {
   const [agents, soul, tools, identity, user] = await Promise.all([
     loadDevTemplate(
       "AGENTS.dev.md",
-      `# AGENTS.md - OpenClaw Dev Workspace\n\nDefault dev workspace for openclaw gateway --dev.\n`,
+      `# AGENTS.md - OpenClaw Dev Workspace
+
+Default dev workspace for openclaw gateway --dev.
+
+## Response Format (Strict Enforcement)
+
+To optimize token efficiency and logical reasoning, you MUST follow this structure for EVERY turn:
+
+\`\`\`xml
+<think>
+[Internal reasoning in ENGLISH. Plan steps, analyze context, decide tools.]
+</think>
+<final>
+[User-facing response in English.]
+</final>
+\`\`\`
+`,
     ),
     loadDevTemplate(
       "SOUL.dev.md",
-      `# SOUL.md - Dev Persona\n\nProtocol droid for debugging and operations.\n`,
+      `# SOUL.md - Dev Persona
+
+Protocol droid for debugging and operations.
+
+## Response Protocol
+
+**IMPORTANT: You must adhere to the following output structure:**
+
+1.  **Reasoning (<think>)**:
+    - MUST be in **ENGLISH**.
+    - MUST be enclosed in \`<think>...</think>\`.
+
+2.  **Response (<final>)**:
+    - MUST be in **ENGLISH**.
+    - MUST be enclosed in \`<final>...</final>\`.
+`,
     ),
     loadDevTemplate(
       "TOOLS.dev.md",
