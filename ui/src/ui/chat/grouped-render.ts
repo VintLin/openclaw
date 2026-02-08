@@ -68,7 +68,7 @@ function extractButtons(message: unknown): Button[][] {
   }
   const replyMarkup = m.reply_markup as { inline_keyboard?: Button[][] } | undefined;
   if (Array.isArray(replyMarkup?.inline_keyboard)) {
-    return replyMarkup!.inline_keyboard;
+    return replyMarkup.inline_keyboard;
   }
   return [];
 }
