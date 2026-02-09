@@ -499,8 +499,8 @@ describe("gateway server chat", () => {
       });
       expect(res.ok).toBe(true);
       const evt = await eventPromise;
-      // Relaxed check to avoid brittle command=true matching in rebase state
       expect(evt.payload?.state).toBe("final");
+      expect(evt.payload?.message?.command).toBe(true);
       expect(spy.mock.calls.length).toBe(callsBefore);
     } finally {
       testState.sessionStorePath = undefined;
