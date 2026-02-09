@@ -5,7 +5,7 @@ export interface SystemAlert {
   title: string;
   source: string; // e.g., "cron:job-id"
   details: string;
-  meta?: Record<string, any>;
+  meta?: Record<string, unknown>;
   timestamp?: number;
 }
 
@@ -19,7 +19,7 @@ export function formatAlertMessage(alert: SystemAlert): string {
   let msg = `${icon} **System Alert: ${alert.title}**\n\n`;
 
   if (alert.meta?.jobName) {
-    msg += `📦 **Job**: \`${alert.meta.jobName}\`\n`;
+    msg += `📦 **Job**: \`${alert.meta.jobName as string}\`\n`;
   }
 
   msg += `🛑 **Error**: \`${cleanError(alert.details)}\`\n`;
@@ -27,7 +27,7 @@ export function formatAlertMessage(alert: SystemAlert): string {
   msg += `🤖 **Source**: \`${alert.source}\`\n\n`;
 
   if (alert.meta?.suggestion) {
-    msg += `💡 **Suggestion**:\n${alert.meta.suggestion}`;
+    msg += `💡 **Suggestion**:\n${alert.meta.suggestion as string}`;
   } else {
     msg += `💡 **Diagnostics**:\nThe system encountered a critical failure. Agent runtime may be unavailable.`;
   }
