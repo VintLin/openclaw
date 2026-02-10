@@ -4,8 +4,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { OpenClawConfig, ConfigFileSnapshot, LegacyConfigIssue } from "./types.js";
-import { loadDotEnv } from "../infra/dotenv.js";
-import { resolveRequiredHomeDir } from "../infra/home-dir.js";
 import {
   loadShellEnvFallback,
   resolveShellEnvFallbackTimeoutMs,
@@ -185,20 +183,10 @@ function normalizeDeps(overrides: ConfigIoDeps = {}): Required<ConfigIoDeps> {
     fs: overrides.fs ?? fs,
     json5: overrides.json5 ?? JSON5,
     env: overrides.env ?? process.env,
-    homedir:
-      overrides.homedir ?? (() => resolveRequiredHomeDir(overrides.env ?? process.env, os.homedir)),
+    homedir: overrides.homedir ?? os.homedir,
     configPath: overrides.configPath ?? "",
     logger: overrides.logger ?? console,
   };
-}
-
-function maybeLoadDotEnvForConfig(env: NodeJS.ProcessEnv): void {
-  // Only hydrate dotenv for the real process env. Callers using injected env
-  // objects (tests/diagnostics) should stay isolated.
-  if (env !== process.env) {
-    return;
-  }
-  loadDotEnv({ quiet: true });
 }
 
 export function parseConfigJson5(
@@ -223,7 +211,6 @@ export function createConfigIO(overrides: ConfigIoDeps = {}) {
 
   function loadConfig(): OpenClawConfig {
     try {
-      maybeLoadDotEnvForConfig(deps.env);
       if (!deps.fs.existsSync(configPath)) {
         if (shouldEnableShellEnvFallback(deps.env) && !shouldDeferShellEnvFallback(deps.env)) {
           loadShellEnvFallback({
@@ -334,7 +321,6 @@ export function createConfigIO(overrides: ConfigIoDeps = {}) {
   }
 
   async function readConfigFileSnapshot(): Promise<ConfigFileSnapshot> {
-    maybeLoadDotEnvForConfig(deps.env);
     const exists = deps.fs.existsSync(configPath);
     if (!exists) {
       const hash = hashConfigRaw(null);
@@ -561,7 +547,7 @@ export function createConfigIO(overrides: ConfigIoDeps = {}) {
 // NOTE: These wrappers intentionally do *not* cache the resolved config path at
 // module scope. `OPENCLAW_CONFIG_PATH` (and friends) are expected to work even
 // when set after the module has been imported (tests, one-off scripts, etc.).
-const DEFAULT_CONFIG_CACHE_MS = 200;
+const DEFAULT_CONFIG_CACHE_MS = 5000;
 let configCache: {
   configPath: string;
   expiresAt: number;
