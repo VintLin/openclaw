@@ -8,7 +8,8 @@ const repoRoot = path.resolve(__dirname, "..");
 
 async function writeJsonSchema() {
   const definitions: Record<string, unknown> = {};
-  for (const [name, schema] of Object.entries(ProtocolSchemas)) {
+  const sortedEntries = Object.entries(ProtocolSchemas).toSorted(([a], [b]) => a.localeCompare(b));
+  for (const [name, schema] of sortedEntries) {
     definitions[name] = schema;
   }
 
